@@ -6,6 +6,13 @@ import base64
 import requests
 from requests.auth import AuthBase
 
+# api key placeholder
+API_KEY = ""
+API_SECRET = ""
+API_PASS = ""
+# holds all active account ids
+accounts = {}
+
 # return map of necessary api keys
 def get_keys():
     keys = {}
@@ -15,10 +22,17 @@ def get_keys():
             keys[d] = data[d]
     return keys
 
-keys = get_keys()
-API_KEY = keys["key"]
-API_SECRET = keys["secret"]
-API_PASS = keys["pass"]
+# login
+def login():
+    keys = get_keys()
+    global API_KEY
+    global API_SECRET
+    global API_PASS
+    API_KEY = keys["key"]
+    API_SECRET = keys["secret"]
+    API_PASS = keys["pass"]
+    get_all_accounts()
+    print("logged in!")
 
 # setup the request sent to coinbase
 class CoinbaseExchangeAuth(AuthBase):
@@ -45,28 +59,97 @@ class CoinbaseExchangeAuth(AuthBase):
 
 # handle get requests
 def get_data(endpoint):
-    api_url = "https://api.pro.coinbase.com/"
+    api_url = "https://api.pro.coinbase.com/" + endpoint
     auth = CoinbaseExchangeAuth(API_KEY, API_SECRET, API_PASS)
-    r = requests.get(api_url + endpoint, auth=auth)
+    r = requests.get(api_url, auth=auth)
     return r.json()
 
 # get all account info with a balance: api.pro.coinbase.com/accounts
 def get_all_accounts():
+    global accounts
     data = get_data("accounts")
-    accounts = []
     for key in data:
         bal = float(key["balance"])
         if(bal > 0):
-            accounts.append(key["id"])
-    return accounts
+            accounts[key["currency"]] = key["id"]
 
 # get single account info: api.pro.coinbase.com/accounts/<account_id>
 def get_account(account_id):
-    data = get_data(f"accounts/{account_id}")
-    print(data)
-    print()
+    r = get_data(f"accounts/{account_id}")
+    return r
 
-accounts = get_all_accounts()
-for account in accounts:
-    get_account(account)
+# get balance for all accounts
+def get_balance():
+    print("balance:")
+    print("-----------")
+    for acc in accounts:
+        data = get_account(accounts[acc])
+        asset = data["currency"]
+        bal = data["balance"]
+        quantity = data["available"]
+        print(f"asset: {asset}, balance: {bal}")
+
+# get history for an account
+def get_history(account_id):
+    r = get_data(f"accounts/{account_id}/ledger")
+    return r
+
+# print history
+def history():
+    hist = []
+    for acc in accounts:
+        data = get_history(accounts[acc])
+        for d in data:
+            hist.append(d["details"])
+    return hist
+
+# get all orders
+def get_all_orders():
+    data = history()
+    orders = []
+    orders_set = set()
+    for d in data:
+        try:
+            if (d["order_id"] not in orders_set):
+                orders.append(d["order_id"])
+            orders_set.add(d["order_id"])
+        except:
+            pass
+    return orders
+
+# get single order
+def get_order(order_id):
+    r = get_data(f"orders/{order_id}")
+    return r
+
+# print orders
+def orders():
+    ordrs = get_all_orders()
+    for order in ordrs:
+        data = get_order(order)
+        order_id = data["id"]
+        side = data["side"]
+        asset = data["product_id"]
+        funds = data["funds"]
+        date = data["done_at"]
+        executed_val = data["executed_value"]
+        print(f"id: {order_id} side: {side}, asset: {asset}, funds: {funds}, date: {date}, executed_val: {executed_val}")
+
+# begin program
+def run():
+    r = True
+    print("remember to login")
+    while (r):
+        cmd = input("> ")
+        if (cmd == "quit"):
+            r = False
+        if (cmd == "login"):
+            login()
+        if (cmd == "balance"):
+            get_balance();
+        if (cmd == "orders"):
+            orders()
+
+if __name__ == "__main__":
+    run()
 

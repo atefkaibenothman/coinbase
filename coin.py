@@ -34,7 +34,7 @@ def login():
     API_SECRET = keys["secret"]
     API_PASS = keys["pass"]
     get_all_accounts()
-    print("logged in!")
+    print("logged in")
 
 # setup the request sent to coinbase
 class CoinbaseExchangeAuth(AuthBase):
@@ -80,21 +80,53 @@ def get_account(account_id):
     r = get_data(f"accounts/{account_id}")
     return r
 
+# get a list of available currency pairs for trading: api.pro.coinbase.com/products
+def get_all_products():
+    r = get_data("products")
+    prds = set()
+    ticker = {}
+    for i in r:
+        if (i["base_currency"] in accounts and i["id"] not in prds and "USD" in i["id"]):
+            ticker[i["base_currency"]] = [i["id"]]
+            prds.add(i["id"])
+    return ticker
+
+# get single product info: api.coinbase.com/products/<product_id>
+def get_product(product_id):
+    r = get_data(f"products/{product_id}/stats")
+    return r;
+
 # get balance for all accounts
 def get_balance():
+    products = get_all_products() 
+    for prod in products:
+        t = get_product(products[prod][0])
+        products[prod].append(t["last"])
+    
     table = PrettyTable()
-    table.field_names = ["asset", "quantity"]
+    table.field_names = ["asset", "quantity", "balance"]
+    total = 0
     for acc in accounts:
         data = get_account(accounts[acc])
         asset = data["currency"]
-        bal = data["balance"]
         quantity = data["available"]
-        table.add_row([asset, bal])
-    print(table)
+        try:
+            balance = float(products[acc][1]) * float(quantity)
+        except KeyError:
+            balance = 0
+        total += balance
+        table.add_row([asset, quantity, balance])
+    table.add_row(["total", "-", total])
+    print(table.get_string(sortby="balance", reversesort=True))
 
 # get history for an account
 def get_history(account_id):
     r = get_data(f"accounts/{account_id}/ledger")
+    return r
+
+# get transfer information: api.coinbase.com/transfers/<transfer_id>
+def get_transfer(transfer_id):
+    r = get_data(f"transfers/{transfer_id}")
     return r
 
 # print history
@@ -130,6 +162,7 @@ def orders():
     table = PrettyTable()
     table.field_names = ["date", "type", "asset", "amount"]
     ordrs = get_all_orders()
+    total = 0
     for order in ordrs:
         data = get_order(order)
         order_id = data["id"]
@@ -139,13 +172,101 @@ def orders():
         date = data["done_at"]
         date = date.split("T")
         executed_val = data["executed_value"]
-        table.add_row([date[0], side, asset, funds])
+        total += float(executed_val)
+        table.add_row([date[0], side, asset, executed_val])
+    table.add_row(["total", "", "", total])
     print(table.get_string(sortby="date"))
 
+# get account details
+def account():
+    table = PrettyTable()
+    table.field_names = ["name", "id"]
+    for acc in accounts:
+        table.add_row([acc, accounts[acc]])
+    print(table)
+
+# create summary of all stats
+def summary():
+    ordrs = get_all_orders()
+    products = {} 
+    for order in ordrs:
+        data = get_order(order)
+        executed_val = float(data["executed_value"])
+        pid = data["product_id"].split("-")[0]
+        if (pid not in products):
+            products[pid] = [executed_val]
+        else:
+            products[pid].append(executed_val)
+        products[pid] = [sum(products[pid])]
+
+    for acc in accounts:
+        if (acc not in products):
+            products[acc] = [0]
+
+    for acc in accounts:
+        data = get_account(accounts[acc])
+        quantity = data["available"]
+        products[acc].append(quantity)
+
+    try:
+        del products["USD"]
+    except KeyError:
+        pass
+
+    ticker = get_all_products() 
+    for prod in ticker:
+        t = get_product(ticker[prod][0])
+        ticker[prod].append(t["last"])
+
+    products["ETH"][0] = 491.03
+    products["BTC"][0] += 49.50
+
+    table = PrettyTable()
+    table.field_names = ["asset", "total deposit", "balance", "increase", "profit", "quantity", "price"]
+    dep = 0
+    bal = 0
+    prof = 0
+    for product in products:
+        products[product].append(ticker[product][1])
+        asset = product
+        total_deposit = float(products[product][0])
+        dep += total_deposit
+        quantity = float(products[product][1])
+        price = float(products[product][2])
+        balance = price * quantity
+        bal += balance
+        try:
+            increase = ((balance - total_deposit) / total_deposit)
+        except ZeroDivisionError:
+            increase = 100
+        increase = "{:.2%}".format(increase)
+        profit = balance - total_deposit
+        prof += profit
+        total_deposit = "{:.2f}".format(total_deposit)
+        balance = "{:.2f}".format(balance)
+        # profit = "{:.2f}".format(profit)
+        profit = str(round(profit, 2))
+        table.add_row([asset, total_deposit, balance, increase, profit, quantity, price])
+    total_increase = ((bal - dep)/dep)
+    total_increase = "{:.2%}".format(total_increase)
+    bal = "{0:.2f}".format(bal)
+    dep = "{0:.2f}".format(dep)
+    prof = str(round(prof, 2))
+    R = "\033[1;31;40m" #RED
+    G = "\033[0;32;40m" # GREEN
+    LG = "\033[1;32;40m" # LIGHT GREEN
+    Y = "\033[1;33;40m" # Yellow
+    B = "\033[1;34;40m" # Blue
+    N = "\033[0m" # Reset
+    table.add_row([Y+"TOTAL"+N, R+dep+N, LG+bal+N, LG+total_increase+N, LG+prof+N, "-", "-"])
+    table.align = "r"
+    print(table)
+
+        
 # begin program
 def run():
     r = True
-    commands = ["login", "balance", "orders", "quit"]
+    commands = ["login", "balance", "orders", "quit", "account", "summary"]
     print("welcome to coinbase cli")
     print(f"available commands: {commands}")
     while (r):
@@ -158,6 +279,10 @@ def run():
             get_balance();
         if (cmd == "orders"):
             orders()
+        if (cmd == "account"):
+            account()
+        if (cmd == "summary"):
+            summary()
 
 if __name__ == "__main__":
     run()

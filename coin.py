@@ -2,8 +2,10 @@ import hmac
 import json
 import hashlib
 import time
+import datetime
 import base64
 import requests
+from prettytable import PrettyTable
 from requests.auth import AuthBase
 
 # api key placeholder
@@ -80,14 +82,15 @@ def get_account(account_id):
 
 # get balance for all accounts
 def get_balance():
-    print("balance:")
-    print("-----------")
+    table = PrettyTable()
+    table.field_names = ["asset", "quantity"]
     for acc in accounts:
         data = get_account(accounts[acc])
         asset = data["currency"]
         bal = data["balance"]
         quantity = data["available"]
-        print(f"asset: {asset}, balance: {bal}")
+        table.add_row([asset, bal])
+    print(table)
 
 # get history for an account
 def get_history(account_id):
@@ -124,6 +127,8 @@ def get_order(order_id):
 
 # print orders
 def orders():
+    table = PrettyTable()
+    table.field_names = ["date", "type", "asset", "amount"]
     ordrs = get_all_orders()
     for order in ordrs:
         data = get_order(order)
@@ -132,13 +137,17 @@ def orders():
         asset = data["product_id"]
         funds = data["funds"]
         date = data["done_at"]
+        date = date.split("T")
         executed_val = data["executed_value"]
-        print(f"id: {order_id} side: {side}, asset: {asset}, funds: {funds}, date: {date}, executed_val: {executed_val}")
+        table.add_row([date[0], side, asset, funds])
+    print(table.get_string(sortby="date"))
 
 # begin program
 def run():
     r = True
-    print("remember to login")
+    commands = ["login", "balance", "orders", "quit"]
+    print("welcome to coinbase cli")
+    print(f"available commands: {commands}")
     while (r):
         cmd = input("> ")
         if (cmd == "quit"):

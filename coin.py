@@ -15,6 +15,8 @@ API_PASS = ""
 # holds all active account ids
 accounts = {}
 
+test = 123
+
 # return map of necessary api keys
 def get_keys():
     keys = {}
@@ -174,6 +176,11 @@ def orders():
         executed_val = data["executed_value"]
         total += float(executed_val)
         table.add_row([date[0], side, asset, executed_val])
+    total += 199.0045910997000000 + 199.0045910997000000 + 99.0045910997000000 + 49.74480
+    table.add_row(["2021-01-12", "buy", "ETH-USD", 199.0045910997000000])
+    table.add_row(["2021-01-21", "buy", "ETH-USD", 199.0045910997000000])
+    table.add_row(["2021-02-05", "buy", "ETH-USD", 99.0045910997000000])
+    table.add_row(["2021-02-08", "buy", "BTC-USD", 49.7448000000000000])
     table.add_row(["total", "", "", total])
     print(table.get_string(sortby="date"))
 
@@ -218,7 +225,7 @@ def summary():
         t = get_product(ticker[prod][0])
         ticker[prod].append(t["last"])
 
-    products["ETH"][0] = 491.03
+    products["ETH"][0] += 491.03
     products["BTC"][0] += 49.50
 
     table = PrettyTable()
@@ -286,4 +293,3 @@ def run():
 
 if __name__ == "__main__":
     run()
-

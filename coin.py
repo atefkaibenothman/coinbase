@@ -15,8 +15,6 @@ API_PASS = ""
 # holds all active account ids
 accounts = {}
 
-test = 123
-
 # return map of necessary api keys
 def get_keys():
     keys = {}

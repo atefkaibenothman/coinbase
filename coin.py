@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import hmac
 import json
 import hashlib
@@ -62,7 +63,7 @@ class CoinbaseExchangeAuth(AuthBase):
 # handle get requests
 def get_data(endpoint):
     api_url = "https://api.pro.coinbase.com/" + endpoint
-    auth = CoinbaseExchangeAuth(API_KEY, API_SECRET, API_PASS)
+    auth = coinbaseexchangeauth(api_key, api_secret, api_pass)
     r = requests.get(api_url, auth=auth)
     return r.json()
 

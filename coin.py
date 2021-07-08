@@ -63,7 +63,7 @@ class CoinbaseExchangeAuth(AuthBase):
 # handle get requests
 def get_data(endpoint):
     api_url = "https://api.pro.coinbase.com/" + endpoint
-    auth = coinbaseexchangeauth(api_key, api_secret, api_pass)
+    auth = CoinbaseExchangeAuth(API_KEY,API_SECRET,API_PASS)        
     r = requests.get(api_url, auth=auth)
     return r.json()
 
